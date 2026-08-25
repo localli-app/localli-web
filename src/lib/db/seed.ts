@@ -92,6 +92,9 @@ async function main() {
         maxAdvanceDays: 60,
         cancellationWindowHours: 24,
       },
+      // A seeded business is fully configured by definition, so it should not
+      // greet the demo with a "finish setting up" prompt.
+      onboardingCompletedAt: new Date(),
     })
     .returning({ id: schema.businesses.id })
 

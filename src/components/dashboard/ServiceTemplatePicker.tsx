@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import type { TemplateCategory } from '@/lib/dashboard/service-templates'
+import { WizardActions } from './wizard'
 
 interface Picked {
   checked: boolean
@@ -17,9 +18,14 @@ interface Picked {
 export function ServiceTemplatePicker({
   categories,
   currencySymbol = '£',
+  nextHref = '/app/services',
+  skipHref = '/app/services',
 }: {
   categories: TemplateCategory[]
   currencySymbol?: string
+  /** Where to go after saving. Differs between the wizard and Services. */
+  nextHref?: string
+  skipHref?: string
 }) {
   const router = useRouter()
   const [state, setState] = useState<Record<string, Picked>>({})
@@ -76,7 +82,7 @@ export function ServiceTemplatePicker({
         setError(payload?.error?.message ?? 'That did not save.')
         return
       }
-      router.push('/app/services')
+      router.push(nextHref)
     } catch {
       setError('Could not reach the server.')
     } finally {
@@ -161,28 +167,24 @@ export function ServiceTemplatePicker({
 
       {error && <p className="mt-3 text-[14px] text-status-noshow">{error}</p>}
 
-      <div className="mt-[22px] flex flex-wrap items-center justify-between gap-5">
-        {/* Every step after the first is skippable. A half-configured business
-            that took one booking is worth more than a complete one that never
-            started. */}
-        <Link
-          href="/app"
-          className="text-[14px] leading-none text-ink-muted underline-offset-2 hover:underline"
-        >
-          Skip for now
-        </Link>
-        <div className="flex items-center gap-4">
+      {/* Every step after the first is skippable. A half-configured business
+          that took one booking is worth more than a complete one that never
+          started. */}
+      <WizardActions
+        skipHref={skipHref}
+        note={
           <span className="text-[14px] leading-none text-ink-muted">{selectedCount} selected</span>
-          <button
-            type="button"
-            onClick={submit}
-            disabled={saving || selectedCount === 0}
-            className="flex h-[46px] items-center rounded-[11px] bg-accent px-[26px] text-[15px] font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
-          >
-            {saving ? 'Saving…' : 'Continue'}
-          </button>
-        </div>
-      </div>
+        }
+      >
+        <button
+          type="button"
+          onClick={submit}
+          disabled={saving || selectedCount === 0}
+          className="flex h-[46px] items-center rounded-[11px] bg-accent px-[26px] text-[15px] font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
+        >
+          {saving ? 'Saving…' : 'Continue'}
+        </button>
+      </WizardActions>
     </>
   )
 }
