@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { MORE_ITEMS, TAB_BAR_ITEMS, activeKey } from './nav'
 import { CopyLinkButton } from './CopyLinkButton'
+import { SignOutButton } from './SignOutButton'
 
 /**
  * Phone navigation, under 768px. Five destinations here, the remaining three
@@ -58,10 +59,21 @@ export function MobileTabBar({ bookingLinkUrl }: { bookingLinkUrl: string }) {
               ))}
               <CopyLinkButton
                 value={bookingLinkUrl}
-                className="flex min-h-[52px] w-full items-center justify-between text-left text-[16px] text-ink"
+                className="flex min-h-[52px] w-full items-center justify-between border-b border-hairline-soft text-left text-[16px] text-ink"
                 label="Copy booking link"
                 copiedLabel="Link copied"
               />
+              <Link
+                href="/app/settings/sessions"
+                onClick={() => setMoreOpen(false)}
+                className="flex min-h-[52px] items-center justify-between border-b border-hairline-soft text-[16px] text-ink"
+              >
+                Devices
+                <span className="text-ink-faint" aria-hidden>
+                  ›
+                </span>
+              </Link>
+              <SignOutButton className="flex min-h-[52px] w-full items-center text-left text-[16px] text-ink" />
             </div>
             <button
               type="button"

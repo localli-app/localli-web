@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getStaffSession } from '@/lib/auth/staff-session'
+import { turnstileSiteKey } from '@/lib/auth/turnstile'
+import { TurnstileField } from '@/components/dashboard/TurnstileField'
 
 /**
  * Sits OUTSIDE the (dashboard) route group so it is not behind the session
@@ -16,7 +18,9 @@ export default async function SignInPage({ searchParams }: PageProps<'/app/signi
 
   const params = await searchParams
   const expired = params.expired === '1'
+  const failed = params.error === '1'
   const isDev = process.env.NODE_ENV !== 'production'
+  const siteKey = turnstileSiteKey()
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-canvas px-5 py-12">
@@ -33,6 +37,16 @@ export default async function SignInPage({ searchParams }: PageProps<'/app/signi
           Enter your email and we&rsquo;ll send you a link. No password — this product
           doesn&rsquo;t have them.
         </p>
+
+        {failed && (
+          <p
+            role="status"
+            className="mt-4 rounded-[10px] bg-accent-tint px-3.5 py-3 text-[14px] leading-[1.5] text-accent-hover"
+          >
+            Something went wrong finishing your sign-in. Nothing was lost — request a new link and
+            try again.
+          </p>
+        )}
 
         {expired && (
           <p
@@ -57,6 +71,7 @@ export default async function SignInPage({ searchParams }: PageProps<'/app/signi
               className="h-12 rounded-[10px] bg-field px-3.5 text-[16px] text-ink outline-none placeholder:text-ink-faint"
             />
           </label>
+          <TurnstileField siteKey={siteKey} />
           <button
             type="submit"
             className="flex h-12 items-center justify-center rounded-[10px] bg-accent text-[15px] font-semibold text-white transition-colors hover:bg-accent-hover"

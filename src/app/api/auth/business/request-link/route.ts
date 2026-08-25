@@ -1,6 +1,9 @@
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { emailHasAccount, issueLoginToken, LOGIN_TOKEN_TTL_MINUTES } from '@/lib/auth/magic-link'
+import { recordAuthEvent } from '@/lib/auth/audit'
+import { clientIp, safeInternalPath } from '@/lib/auth/request-context'
+import { verifyTurnstile } from '@/lib/auth/turnstile'
 import { sendEmail } from '@/lib/email/send'
 import { renderLoginLinkEmail } from '@/lib/email/templates/login-link'
 import { appBaseUrl } from '@/lib/dashboard/links'
@@ -9,30 +12,31 @@ const bodySchema = z.object({
   email: z.email(),
   /** Where to land after verifying. Same-origin paths only. */
   next: z.string().max(200).optional(),
+  /** Turnstile response, when bot protection is configured. */
+  turnstileToken: z.string().max(4000).optional(),
 })
 
 /**
  * Requests a sign-in link. This is both signup and sign-in — the magic link
- * creates the account if there isn't one.
+ * creates the account when there isn't one.
  *
  * ALWAYS responds the same way, whether or not the address has an account,
- * whether or not it is rate-limited, and whether or not delivery succeeded.
- * Anything else confirms which addresses are registered.
+ * whether or not it is rate-limited, whether or not bot protection rejected it,
+ * and whether or not delivery succeeded. Anything else confirms which addresses
+ * are registered, or tells an attacker when they have been throttled.
  */
 export async function POST(request: NextRequest) {
-  const form = request.headers.get('content-type')?.includes('application/json')
+  const isJson = request.headers.get('content-type')?.includes('application/json')
+  const raw = isJson
     ? await request.json().catch(() => ({}))
     : Object.fromEntries((await request.formData().catch(() => new FormData())).entries())
 
-  const parsed = bodySchema.safeParse(form)
+  const parsed = bodySchema.safeParse(raw)
 
-  // Even a malformed address gets the same outcome, so probing learns nothing.
   if (parsed.success) {
-    await issueAndSend(parsed.data.email, parsed.data.next ?? null, request)
+    await issueAndSend(parsed.data, request)
   }
 
-  // A browser form post lands on the "check your inbox" screen; an API caller
-  // gets 204, per planning/09-api-spec.md.
   const wantsHtml = request.headers.get('accept')?.includes('text/html')
   if (wantsHtml) {
     const target = new URL('/app/check-inbox', appBaseUrl(request))
@@ -43,19 +47,41 @@ export async function POST(request: NextRequest) {
   return new Response(null, { status: 204 })
 }
 
-async function issueAndSend(email: string, next: string | null, request: NextRequest) {
-  // Only same-origin paths, so a link cannot be used to bounce someone offsite.
-  const redirectTo = next && next.startsWith('/') && !next.startsWith('//') ? next : null
+async function issueAndSend(
+  input: { email: string; next?: string; turnstileToken?: string },
+  request: NextRequest,
+) {
+  const { email } = input
+  const headers = request.headers
+  const ip = clientIp(headers)
+
+  // Bot protection first: it is the only thing standing between this endpoint
+  // and being a mailer for someone else's spam, paid for with our sending
+  // reputation. Inert until keys are configured.
+  const turnstile = await verifyTurnstile(input.turnstileToken, ip)
+  if (!turnstile.ok) {
+    await recordAuthEvent({
+      kind: 'link_rate_limited',
+      email,
+      headers,
+      detail: { reason: `turnstile_${turnstile.reason}` },
+    })
+    return
+  }
+
+  const redirectTo = safeInternalPath(input.next)
 
   const issued = await issueLoginToken({
     email,
     redirectTo,
-    ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
-    userAgent: request.headers.get('user-agent'),
+    ip,
+    userAgent: headers.get('user-agent'),
   })
 
-  // Over a rate limit. Silently do nothing: the caller must not be able to tell.
-  if (!issued) return
+  if (!issued) {
+    await recordAuthEvent({ kind: 'link_rate_limited', email, headers, detail: { reason: 'quota' } })
+    return
+  }
 
   const isNewAccount = !(await emailHasAccount(email))
   const url = new URL('/api/auth/business/verify', appBaseUrl(request))
@@ -67,5 +93,19 @@ async function issueAndSend(email: string, next: string | null, request: NextReq
     expiryMinutes: LOGIN_TOKEN_TTL_MINUTES,
   })
 
-  await sendEmail({ to: email, ...message })
+  const result = await sendEmail({ to: email, ...message })
+
+  await recordAuthEvent({
+    kind: 'link_requested',
+    email,
+    headers,
+    // Never the token. Delivery outcome is recorded because a silent Postmark
+    // outage would otherwise look identical to nobody signing up.
+    detail: {
+      isNewAccount,
+      transport: result.transport,
+      delivered: result.delivered,
+      turnstile: turnstile.reason,
+    },
+  })
 }

@@ -4,6 +4,7 @@ import { getBusinessSettings } from '@/lib/dashboard/directory'
 import { appBaseUrl, displayLink } from '@/lib/dashboard/links'
 import { summariseWeeklyHours } from '@/lib/format'
 import { TopBar } from '@/components/dashboard/TopBar'
+import { DangerZone } from '@/components/dashboard/DangerZone'
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -81,6 +82,12 @@ export default async function SettingsPage() {
               <Row label="Areas and travel limits" value="Managed in the seed for the demo" />
             </Section>
           )}
+
+          <Section title="Devices">
+            <Row label="Signed-in devices" value="Manage on the Devices screen" />
+          </Section>
+
+          <DangerZone slug={session.businessSlug} isOwner={session.role === 'owner'} />
 
           <p className="text-[13px] leading-[1.5] text-ink-muted">
             Editing is read-only for the demo. Any change that can affect available slots must bump

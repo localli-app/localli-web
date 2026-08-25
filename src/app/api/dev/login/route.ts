@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const token = await createStaffSession(owner.id)
+  const token = await createStaffSession(owner.id, { headers: request.headers })
   const store = await cookies()
   store.set(STAFF_COOKIE, token, staffCookieOptions())
 

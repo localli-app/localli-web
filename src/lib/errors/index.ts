@@ -42,11 +42,18 @@ export class AppError extends Error {
   readonly status: number
   readonly details?: unknown
 
-  constructor(code: AppErrorCode, message: string, details?: unknown) {
+  /**
+   * `status` overrides the code's default mapping. Needed because a few codes
+   * mean different things on public and authenticated endpoints: TOKEN_EXPIRED
+   * is 404 on a public booking link, deliberately, so a probe cannot learn that
+   * the token format was right — but 404 is simply wrong when an authenticated
+   * owner is told their session is too old for a privileged action.
+   */
+  constructor(code: AppErrorCode, message: string, details?: unknown, status?: number) {
     super(message)
     this.name = 'AppError'
     this.code = code
-    this.status = STATUS_BY_CODE[code]
+    this.status = status ?? STATUS_BY_CODE[code]
     this.details = details
   }
 }
