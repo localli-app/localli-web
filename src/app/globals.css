@@ -38,6 +38,35 @@
 
   --ll-radius-field: 10px;
   --ll-radius-control: 14px;
+
+  /*
+   * Dashboard additions (Localli Dashboard.dc.html).
+   * Same family as the booking flow, applied at work-tool density.
+   *
+   * Booking status carries its OWN colour set, deliberately separate from the
+   * terracotta accent, so an unconfirmed or a no-show reads at a glance. Never
+   * colour-code by service — that is decoration and it steals the signal.
+   */
+  --ll-status-confirmed: #2f6b4f;
+  --ll-status-awaiting: #9a6a12;
+  --ll-status-noshow: #a3402c;
+  --ll-status-done: #6b625a;
+
+  /* Dark sidebar */
+  --ll-nav: #201c18;
+  --ll-nav-active: rgb(255 255 255 / 0.12);
+  --ll-nav-hover: rgb(255 255 255 / 0.07);
+  --ll-nav-text: rgb(255 255 255 / 0.72);
+  --ll-nav-divider: rgb(255 255 255 / 0.14);
+
+  /* Attention badge on a nav item */
+  --ll-badge: #e8b33a;
+
+  /* Bookings-by-source chart, ramped down from the accent */
+  --ll-source-1: #a8481f;
+  --ll-source-2: #c06438;
+  --ll-source-3: #d08a5e;
+  --ll-source-4: #e0b292;
 }
 
 @theme inline {
@@ -58,6 +87,18 @@
   --color-hairline: var(--ll-hairline);
   --color-hairline-soft: var(--ll-hairline-soft);
   --color-border-strong: var(--ll-border-strong);
+
+  --color-status-confirmed: var(--ll-status-confirmed);
+  --color-status-awaiting: var(--ll-status-awaiting);
+  --color-status-noshow: var(--ll-status-noshow);
+  --color-status-done: var(--ll-status-done);
+
+  --color-nav: var(--ll-nav);
+  --color-nav-active: var(--ll-nav-active);
+  --color-nav-hover: var(--ll-nav-hover);
+  --color-nav-text: var(--ll-nav-text);
+  --color-nav-divider: var(--ll-nav-divider);
+  --color-badge: var(--ll-badge);
 
   /*
    * System font stack, deliberately. The performance budget allows a system
