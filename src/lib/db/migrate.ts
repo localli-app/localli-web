@@ -8,7 +8,10 @@ if (!process.env.DATABASE_URL) {
 }
 
 async function main() {
-  const migrationClient = postgres(process.env.DATABASE_URL!, { max: 1 })
+  // `prepare: false` is required when connecting through Supabase's transaction
+  // pooler (port 6543), which cannot support prepared statements. Harmless on a
+  // session-pooler or direct connection.
+  const migrationClient = postgres(process.env.DATABASE_URL!, { max: 1, prepare: false })
   const db = drizzle(migrationClient)
 
   await migrate(db, { migrationsFolder: './drizzle/migrations' })

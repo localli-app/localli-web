@@ -1,26 +1,148 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens taken from the Claude Design canvas
+ * ("Localli mobile booking flow", Localli Booking Flow.dc.html).
+ *
+ * Warm neutral palette with a single terracotta accent, reserved for the one
+ * primary action per screen. Body text is 17px (iOS body) and tap targets are
+ * never under 44px, per the accessibility rules in planning/03a-booking-flow.md.
+ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Surfaces */
+  --ll-canvas: #efe9e1; /* outside the screen, and large-viewport backdrop */
+  --ll-surface: #ffffff; /* the screen itself */
+  --ll-surface-subtle: #faf7f3; /* footer, hover, quiet panels */
+  --ll-field: #f3eee7; /* inputs, chips, summary blocks */
+  --ll-accent-tint: #f6ede7; /* accent-tinted callouts */
+
+  /* Ink */
+  --ll-ink: #201c18;
+  --ll-ink-secondary: #5e564f;
+  --ll-ink-muted: #6b625a;
+  --ll-ink-faint: #a9a097; /* chevrons only, never text */
+
+  /* Accent — exactly one primary action per screen */
+  --ll-accent: #a8481f;
+  --ll-accent-hover: #8c3a18;
+
+  /* Lines */
+  --ll-hairline: rgb(32 28 24 / 0.1);
+  --ll-hairline-soft: rgb(32 28 24 / 0.08);
+  --ll-border-strong: rgb(32 28 24 / 0.2);
+
+  /* Focus and selection */
+  --ll-focus-ring: 0 0 0 4px rgb(168 72 31 / 0.16);
+  --ll-select-ring: inset 0 0 0 2px var(--ll-accent);
+
+  --ll-radius-field: 10px;
+  --ll-radius-control: 14px;
+
+  /*
+   * Dashboard additions (Localli Dashboard.dc.html).
+   * Same family as the booking flow, applied at work-tool density.
+   *
+   * Booking status carries its OWN colour set, deliberately separate from the
+   * terracotta accent, so an unconfirmed or a no-show reads at a glance. Never
+   * colour-code by service — that is decoration and it steals the signal.
+   */
+  --ll-status-confirmed: #2f6b4f;
+  --ll-status-awaiting: #9a6a12;
+  --ll-status-noshow: #a3402c;
+  --ll-status-done: #6b625a;
+
+  /* Dark sidebar */
+  --ll-nav: #201c18;
+  --ll-nav-active: rgb(255 255 255 / 0.12);
+  --ll-nav-hover: rgb(255 255 255 / 0.07);
+  --ll-nav-text: rgb(255 255 255 / 0.72);
+  --ll-nav-divider: rgb(255 255 255 / 0.14);
+
+  /* Attention badge on a nav item */
+  --ll-badge: #e8b33a;
+
+  /* Bookings-by-source chart, ramped down from the accent */
+  --ll-source-1: #a8481f;
+  --ll-source-2: #c06438;
+  --ll-source-3: #d08a5e;
+  --ll-source-4: #e0b292;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-canvas: var(--ll-canvas);
+  --color-surface: var(--ll-surface);
+  --color-surface-subtle: var(--ll-surface-subtle);
+  --color-field: var(--ll-field);
+  --color-accent-tint: var(--ll-accent-tint);
+
+  --color-ink: var(--ll-ink);
+  --color-ink-secondary: var(--ll-ink-secondary);
+  --color-ink-muted: var(--ll-ink-muted);
+  --color-ink-faint: var(--ll-ink-faint);
+
+  --color-accent: var(--ll-accent);
+  --color-accent-hover: var(--ll-accent-hover);
+
+  --color-hairline: var(--ll-hairline);
+  --color-hairline-soft: var(--ll-hairline-soft);
+  --color-border-strong: var(--ll-border-strong);
+
+  --color-status-confirmed: var(--ll-status-confirmed);
+  --color-status-awaiting: var(--ll-status-awaiting);
+  --color-status-noshow: var(--ll-status-noshow);
+  --color-status-done: var(--ll-status-done);
+
+  --color-nav: var(--ll-nav);
+  --color-nav-active: var(--ll-nav-active);
+  --color-nav-hover: var(--ll-nav-hover);
+  --color-nav-text: var(--ll-nav-text);
+  --color-nav-divider: var(--ll-nav-divider);
+  --color-badge: var(--ll-badge);
+
+  /*
+   * System font stack, deliberately. The performance budget allows a system
+   * stack or ONE self-hosted subset font; a webfont request would eat the
+   * budget on the hot path. See planning/06-architecture.md.
+   */
+  --font-sans: -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  --font-display: -apple-system, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  /* The design is specified at a 17px base; don't let a UA default shrink it. */
+  font-size: 100%;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  background: var(--ll-canvas);
+  color: var(--ll-ink);
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The booking flow is a light-surface document by design; opting out of the UA
+   dark-mode form restyling keeps fields on the warm palette. */
+:root {
+  color-scheme: light;
+}
+
+/* Visible focus for keyboard users, invisible for pointer users. */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--ll-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

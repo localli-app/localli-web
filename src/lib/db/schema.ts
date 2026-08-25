@@ -165,6 +165,13 @@ export const businesses = pgTable(
     /** Bumped on any change affecting availability. Part of the cache key. */
     availabilityVersion: integer('availability_version').notNull().default(0),
 
+    /**
+     * Null until the setup wizard is finished. Every step after the first is
+     * skippable, so a business can take bookings while this is still null —
+     * it drives the persistent "finish setting up" prompt, not a paywall.
+     */
+    onboardingCompletedAt: timestamp('onboarding_completed_at', { withTimezone: true }),
+
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -464,6 +471,41 @@ export const customerSessions = pgTable(
 )
 
 /** Same mechanism for business dashboard logins. */
+/**
+ * Magic-link login tokens for the business side.
+ *
+ * Keyed by EMAIL rather than staff id, deliberately: at signup there is no
+ * business and no staff row yet, so the token cannot reference one. The same
+ * table therefore serves both signup and sign-in, and `verify` decides which
+ * happened by whether that email already resolves to a staff member.
+ *
+ * Short-lived and single-use, per planning/06-architecture.md. The raw token
+ * travels in a URL, so it is never reused as the session value — consuming one
+ * issues a separate `staff_session` with a fresh secret.
+ */
+export const authLoginTokens = pgTable(
+  'auth_login_token',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** Lowercased and trimmed at write time. */
+    email: text('email').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    /** Where to land after verifying, e.g. the wizard or a deep link. */
+    redirectTo: text('redirect_to'),
+    ip: text('ip'),
+    userAgent: text('user_agent'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tokenIdx: uniqueIndex('auth_login_token_token_idx').on(t.tokenHash),
+    // Supports the per-address issuance rate limit.
+    emailIdx: index('auth_login_token_email_idx').on(t.email, t.createdAt),
+    ipIdx: index('auth_login_token_ip_idx').on(t.ip, t.createdAt),
+  }),
+)
+
 export const staffSessions = pgTable(
   'staff_session',
   {
