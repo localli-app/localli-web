@@ -28,6 +28,16 @@ export interface Account {
   onboardingComplete: boolean
 }
 
+/** Short, unambiguous suffix for a retried slug. No vowels, so it cannot spell anything. */
+function randomSuffix(attempt: number): string {
+  const alphabet = '23456789bcdfghjkmnpqrstvwxz'
+  let out = ''
+  for (let i = 0; i < 3 + attempt; i++) {
+    out += alphabet[Math.floor(Math.random() * alphabet.length)]
+  }
+  return out
+}
+
 export function slugify(value: string): string {
   return value
     .normalize('NFKD')
@@ -88,7 +98,69 @@ export async function resolveOrCreateAccount(rawEmail: string): Promise<Account>
   const localPart = (email.split('@')[0] ?? 'salon').split('+')[0] || 'salon'
   const provisionalName =
     localPart.replace(/[._-]+/g, ' ').trim().replace(/\b\w/g, (c) => c.toUpperCase()) || 'My business'
-  const slug = await uniqueSlug(localPart)
+
+  // `uniqueSlug` reads before it writes, so two signups racing on the same
+  // derived slug both see it free and one loses on the unique index. That is
+  // not hypothetical: tapping "send it again" and opening both links does it.
+  // Retry on the actual violation rather than trying to pre-check harder.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      return await createAccount({ email, provisionalName, localPart, attempt })
+    } catch (error) {
+      if (isSlugConflict(error) && attempt < 4) continue
+
+      // Someone else finished creating this account while we were racing them.
+      if (isEmailRace(error)) {
+        const winner = await db.query.staff.findFirst({
+          where: and(eq(s.staff.email, email), eq(s.staff.isActive, true)),
+        })
+        if (winner) {
+          return {
+            staffId: winner.id,
+            businessId: winner.businessId,
+            isNew: false,
+            onboardingComplete: false,
+          }
+        }
+      }
+      throw error
+    }
+  }
+
+  throw new Error('Could not allocate a unique booking link')
+}
+
+/** Postgres unique_violation. */
+function isUniqueViolation(error: unknown): boolean {
+  const cause = (error as { cause?: { code?: string } })?.cause
+  return cause?.code === '23505' || (error as { code?: string })?.code === '23505'
+}
+
+function constraintOf(error: unknown): string | undefined {
+  const cause = (error as { cause?: { constraint_name?: string } })?.cause
+  return cause?.constraint_name ?? (error as { constraint_name?: string })?.constraint_name
+}
+
+function isSlugConflict(error: unknown): boolean {
+  return isUniqueViolation(error) && constraintOf(error) === 'business_slug_idx'
+}
+
+function isEmailRace(error: unknown): boolean {
+  return isUniqueViolation(error) && constraintOf(error) !== 'business_slug_idx'
+}
+
+async function createAccount(input: {
+  email: string
+  provisionalName: string
+  localPart: string
+  attempt: number
+}): Promise<Account> {
+  const { email, provisionalName, localPart, attempt } = input
+
+  // Widen the search on each retry so repeated collisions converge quickly
+  // rather than fighting over the same next-free value.
+  const seed = attempt === 0 ? localPart : `${localPart}-${randomSuffix(attempt)}`
+  const slug = await uniqueSlug(seed)
 
   return db.transaction(async (tx) => {
     const [business] = await tx

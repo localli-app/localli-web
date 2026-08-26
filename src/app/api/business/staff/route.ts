@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import { asc, eq, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { failure, handleRoute, ok } from '@/lib/api/respond'
 import { getStaffSession } from '@/lib/auth/staff-session'
 import { db } from '@/lib/db/client'
@@ -22,6 +22,28 @@ export async function POST(request: NextRequest) {
       db.select({ id: s.services.id }).from(s.services).where(eq(s.services.businessId, session.businessId)),
       db.select({ id: s.staff.id }).from(s.staff).where(eq(s.staff.businessId, session.businessId)).orderBy(asc(s.staff.sortOrder)),
     ])
+
+    // One account per email is now enforced by a unique index, so a clash here
+    // must read as a message rather than a 500. It happens for real: a stylist
+    // who already has their own Localli account being added to a second salon.
+    const withEmail = body.staff
+      .map((m) => (m.email ? normaliseEmail(m.email) : null))
+      .filter((e): e is string => Boolean(e))
+
+    if (withEmail.length > 0) {
+      const clashes = await db
+        .select({ email: s.staff.email })
+        .from(s.staff)
+        .where(and(inArray(s.staff.email, withEmail), eq(s.staff.isActive, true)))
+
+      if (clashes.length > 0) {
+        throw new AppError(
+          'VALIDATION_FAILED',
+          `${clashes[0].email} is already used by another Localli account. Add them without an email for now, or use a different address.`,
+          { field: 'email', conflicts: clashes.map((c) => c.email) },
+        )
+      }
+    }
 
     const created = await db.transaction(async (tx) => {
       const rows = await tx

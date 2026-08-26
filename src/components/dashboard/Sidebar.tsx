@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { NAV_ITEMS, activeKey } from './nav'
 import { CopyLinkButton } from './CopyLinkButton'
+import { SignOutButton } from './SignOutButton'
 
 /**
  * Persistent from 1280px, collapsible from 768px. Hidden below that, where the
@@ -93,13 +94,22 @@ export function Sidebar({
       </div>
 
       <div className="mt-auto px-3.5 pt-6">
-        <div className="flex flex-col gap-1.5 rounded-[11px] bg-white/[0.07] px-3 pt-3 pb-3.5">
+        <div className="flex flex-col gap-2 rounded-[11px] bg-white/[0.07] px-3 pt-3 pb-3">
           <span className="text-[12px] leading-none tracking-[0.04em] text-white/55 uppercase">
             {staffName}
           </span>
           <span className="text-[13px] leading-none text-white/80">
             {staffRole} · {businessName}
           </span>
+          <div className="flex items-center justify-between gap-2 border-t border-nav-divider pt-2">
+            <Link
+              href="/app/settings/sessions"
+              className="text-[13px] leading-none text-white/70 underline-offset-2 hover:text-white hover:underline"
+            >
+              Devices
+            </Link>
+            <SignOutButton className="text-[13px] leading-none text-white/70 underline-offset-2 hover:text-white hover:underline" />
+          </div>
         </div>
       </div>
     </nav>

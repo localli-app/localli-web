@@ -519,9 +519,63 @@ export const staffSessions = pgTable(
       .defaultNow(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     usedAt: timestamp('used_at', { withTimezone: true }),
+
+    /** Shown on the sessions screen so an owner can recognise their own devices. */
+    ip: text('ip'),
+    userAgent: text('user_agent'),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * Set instead of deleting, so "signed out on Tuesday from the salon iPad"
+     * survives in the audit trail rather than vanishing.
+     */
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
   },
   (t) => ({
     tokenIdx: uniqueIndex('staff_session_token_idx').on(t.tokenHash),
+    staffIdx: index('staff_session_staff_idx').on(t.staffId),
+  }),
+)
+
+export const authEventKindEnum = pgEnum('auth_event_kind', [
+  'link_requested',
+  'link_rate_limited',
+  'link_consumed',
+  'link_rejected',
+  'account_created',
+  'session_revoked',
+  'signed_out',
+  'data_exported',
+  'account_deleted',
+])
+
+/**
+ * Append-only record of authentication activity.
+ *
+ * planning/06-architecture.md asks for an audit log on PII access, not just
+ * mutations. Rows are keyed by email as well as staff id because the most
+ * interesting events — a rejected link, a rate-limited request — happen before
+ * any account exists to attribute them to.
+ *
+ * Deliberately NOT foreign-keyed to staff: deleting an account must not erase
+ * the record that it was deleted.
+ */
+export const authEvents = pgTable(
+  'auth_event',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kind: authEventKindEnum('kind').notNull(),
+    email: text('email'),
+    staffId: uuid('staff_id'),
+    businessId: uuid('business_id'),
+    ip: text('ip'),
+    userAgent: text('user_agent'),
+    /** Never store a raw token or any secret here. */
+    detail: jsonb('detail'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    emailIdx: index('auth_event_email_idx').on(t.email, t.createdAt),
+    staffIdx: index('auth_event_staff_idx').on(t.staffId, t.createdAt),
   }),
 )
 
